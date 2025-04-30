@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Precios</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="text-center mb-4">🛍️ Calculadora de Precios con Margen de Ganancia</h1>
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <input type="text" id="concepto" class="form-control" placeholder="Nombre del producto">
+      </div>
+      <div class="col-md-4">
+        <input type="number" id="costo" class="form-control" placeholder="Costo base ($)" min="0">
+      </div>
+      <div class="col-md-4">
+        <input type="number" id="margen" class="form-control" placeholder="Margen de ganancia (%)" min="0">
+      </div>
+      <div class="col-12 text-center">
+        <button class="btn btn-success mt-2" onclick="calcularPrecio()">Calcular Precio ✅</button>
+      </div>
+    </div>
+
+    <div id="resultado" class="text-center mb-4"></div>
+
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-striped" id="tablaProductos">
+        <thead class="table-dark">
+          <tr>
+            <th>Concepto</th>
+            <th>Costo Base ($)</th>
+            <th>Margen de Ganancia (%)</th>
+            <th>Precio Sugerido ($)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-center gap-3 mb-4">
+      <button class="btn btn-outline-primary" onclick="exportarExcel()">📊 Exportar a Excel</button>
+      <button class="btn btn-outline-danger" onclick="exportarPDF()">📄 Exportar a PDF</button>
+    </div>
+
+    <div>
+      <canvas id="graficaProductos" height="100"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const productos = [];
+    const ctx = document.getElementById('graficaProductos').getContext('2d');
+    const grafico = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Precio Sugerido ($)',
+          data: [],
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    function calcularPrecio() {
+      const concepto = document.getElementById('concepto').value.trim();
+      const costo = parseFloat(document.getElementById('costo').value);
+      const margen = parseFloat(document.getElementById('margen').value);
+
+      if (!concepto || isNaN(costo) || isNaN(margen)) {
+        mostrarResultado('❌ Por favor completa todos los campos correctamente.', 'danger');
+        return;
+      }
+
+      const ganancia = costo * (margen / 100);
+      const precio = costo + ganancia;
+
+      mostrarResultado(`✅ <strong>${concepto}</strong>: Ganancia = $${ganancia.toFixed(2)} | Precio sugerido = <strong>$${precio.toFixed(2)}</strong>`, 'success');
+
+      agregarATabla(concepto, costo, margen, precio);
+      actualizarGrafico(concepto, precio);
+    }
+
+    function mostrarResultado(mensaje, tipo) {
+      const div = document.getElementById('resultado');
+      div.innerHTML = `<div class="alert alert-${tipo} animate__animated animate__fadeIn">${mensaje}</div>`;
+    }
+
+    function agregarATabla(concepto, costo, margen, precio) {
+      const fila = `<tr><td>${concepto}</td><td>$${costo.toFixed(2)}</td><td>${margen}%</td><td>$${precio.toFixed(2)}</td></tr>`;
+      document.querySelector('#tablaProductos tbody').insertAdjacentHTML('beforeend', fila);
+      productos.push({ concepto, costo, margen, precio });
+    }
+
+    function actualizarGrafico(concepto, precio) {
+      grafico.data.labels.push(concepto);
+      grafico.data.datasets[0].data.push(precio);
+      grafico.update();
+    }
+
+    function exportarExcel() {
+      const ws = XLSX.utils.json_to_sheet(productos);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+      XLSX.writeFile(wb, 'productos.xlsx');
+    }
+
+    async function exportarPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Lista de Productos", 10, 10);
+      let y = 20;
+      productos.forEach(p => {
+        doc.text(`Producto: ${p.concepto} | Costo: $${p.costo} | Margen: ${p.margen}% | Precio: $${p.precio}`, 10, y);
+        y += 10;
+      });
+      doc.save('productos.pdf');
+    }
+  </script>
+</body>
+</html>
